@@ -1,63 +1,49 @@
-// Web Search Tool with Multiple Sources and Caching
-// Primary: Tavily (AI-optimized), Fallback: DuckDuckGo
+// Web Search Tool — Tavily only (DDG disabled due to reliability issues on cloud)
 
 import { SearchResult, SearchQuery } from "../types";
-import { tavily } from "@tavily/core";
 
 // Simple in-memory cache
 const searchCache = new Map<string, { results: SearchResult[]; timestamp: Date }>();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// Tavily client (get free API key at tavily.com)
-const tavilyClient = tavily({
-    apiKey: process.env.TAVILY_API_KEY || ""
-});
-
-// Rate limiting for DDG fallback
-let lastSearchTime = 0;
-const MIN_DELAY_MS = 2500;
-
-/**
- * Delay helper for rate limiting
- */
-async function rateLimitDelay(): Promise<void> {
-    const now = Date.now();
-    const timeSinceLastSearch = now - lastSearchTime;
-    if (timeSinceLastSearch < MIN_DELAY_MS) {
-        await new Promise(resolve => setTimeout(resolve, MIN_DELAY_MS - timeSinceLastSearch));
-    }
-    lastSearchTime = Date.now();
-}
-
 function normalizeQuery(query: string): string {
     return query.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-function isCacheValid(timestamp: Date): boolean {
-    return Date.now() - timestamp.getTime() < CACHE_TTL_MS;
 }
 
 function getCached(query: string): SearchResult[] | null {
     const normalized = normalizeQuery(query);
     const cached = searchCache.get(normalized);
-    if (cached && isCacheValid(cached.timestamp)) {
+    if (cached && Date.now() - cached.timestamp.getTime() < CACHE_TTL_MS) {
         return cached.results.map(r => ({ ...r, source: "cached" as const }));
     }
     return null;
 }
 
 function setCache(query: string, results: SearchResult[]): void {
-    const normalized = normalizeQuery(query);
-    searchCache.set(normalized, { results, timestamp: new Date() });
+    searchCache.set(normalizeQuery(query), { results, timestamp: new Date() });
+}
+
+// Lazy Tavily client
+let tavilyClient: Awaited<ReturnType<typeof initTavily>> | null = null;
+
+async function initTavily() {
+    if (!process.env.TAVILY_API_KEY) return null;
+    try {
+        const { tavily } = await import("@tavily/core");
+        return tavily({ apiKey: process.env.TAVILY_API_KEY });
+    } catch {
+        return null;
+    }
 }
 
 /**
- * Tavily search - AI-optimized, reliable, generous free tier
+ * Tavily search — primary and only search source
  */
 async function searchTavily(query: string): Promise<SearchResult[]> {
     try {
-        if (!process.env.TAVILY_API_KEY) {
-            console.log("Tavily API key not set, skipping...");
+        if (!tavilyClient) tavilyClient = await initTavily();
+        if (!tavilyClient) {
+            console.log("Tavily not available, skipping search");
             return [];
         }
 
@@ -79,109 +65,35 @@ async function searchTavily(query: string): Promise<SearchResult[]> {
 }
 
 /**
- * DuckDuckGo search - Fallback with rate limiting
- */
-async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-    try {
-        await rateLimitDelay();
-        const { search } = await import("duck-duck-scrape");
-
-        const results = await search(query, {
-            safeSearch: 0,
-        });
-
-        return results.results.slice(0, 5).map(r => ({
-            title: r.title,
-            url: r.url,
-            snippet: r.description,
-            source: "duckduckgo" as const,
-        }));
-    } catch (error) {
-        console.error("DuckDuckGo search failed:", error);
-        return [];
-    }
-}
-
-/**
- * Main search function - tries Tavily first, falls back to DDG
+ * Main search function — Tavily only, with cache
  */
 export async function webSearch(
     query: string,
-    options: {
-        useCache?: boolean;
-        maxResults?: number;
-        sources?: ("tavily" | "duckduckgo")[];
-    } = {}
+    options: { useCache?: boolean; maxResults?: number } = {}
 ): Promise<SearchQuery> {
-    const {
-        useCache = true,
-        maxResults = 5,
-        sources = ["tavily", "duckduckgo"], // Tavily first
-    } = options;
+    const { useCache = true, maxResults = 5 } = options;
 
-    // Check cache first
+    // Check cache
     if (useCache) {
         const cached = getCached(query);
         if (cached && cached.length > 0) {
-            return {
-                query,
-                results: cached.slice(0, maxResults),
-                timestamp: new Date(),
-                cached: true,
-            };
+            return { query, results: cached.slice(0, maxResults), timestamp: new Date(), cached: true };
         }
     }
 
-    // Search from sources (Tavily preferred)
-    const allResults: SearchResult[] = [];
+    // Search via Tavily
+    const results = await searchTavily(query);
+    const finalResults = results.slice(0, maxResults);
 
-    for (const source of sources) {
-        try {
-            let results: SearchResult[] = [];
-
-            switch (source) {
-                case "tavily":
-                    results = await searchTavily(query);
-                    break;
-                case "duckduckgo":
-                    results = await searchDuckDuckGo(query);
-                    break;
-            }
-
-            allResults.push(...results);
-
-            // If we have enough results, stop
-            if (allResults.length >= maxResults) break;
-        } catch (error) {
-            console.error(`Search source ${source} failed:`, error);
-        }
-    }
-
-    // Deduplicate by URL
-    const seen = new Set<string>();
-    const uniqueResults = allResults.filter(r => {
-        if (seen.has(r.url)) return false;
-        seen.add(r.url);
-        return true;
-    });
-
-    const finalResults = uniqueResults.slice(0, maxResults);
-
-    // Cache the results
     if (useCache && finalResults.length > 0) {
         setCache(query, finalResults);
     }
 
-    return {
-        query,
-        results: finalResults,
-        timestamp: new Date(),
-        cached: false,
-    };
+    return { query, results: finalResults, timestamp: new Date(), cached: false };
 }
 
 /**
- * Build market research queries (limited to 2)
+ * Build market research queries
  */
 export function buildMarketQueries(idea: { title: string; description: string }): string[] {
     const industry = extractIndustry(idea.description);
@@ -192,7 +104,7 @@ export function buildMarketQueries(idea: { title: string; description: string })
 }
 
 /**
- * Build competitor research queries (limited to 2)
+ * Build competitor research queries
  */
 export function buildCompetitorQueries(idea: { title: string; description: string }): string[] {
     return [
@@ -202,7 +114,7 @@ export function buildCompetitorQueries(idea: { title: string; description: strin
 }
 
 /**
- * Build risk research queries (limited to 2)
+ * Build risk research queries
  */
 export function buildRiskQueries(idea: { title: string; description: string }): string[] {
     const industry = extractIndustry(idea.description);
@@ -212,9 +124,6 @@ export function buildRiskQueries(idea: { title: string; description: string }): 
     ];
 }
 
-/**
- * Extract industry from description
- */
 function extractIndustry(description: string): string {
     const industries: Record<string, string[]> = {
         "healthcare": ["health", "medical", "patient", "doctor", "wellness"],
@@ -228,15 +137,13 @@ function extractIndustry(description: string): string {
 
     const desc = description.toLowerCase();
     for (const [industry, keywords] of Object.entries(industries)) {
-        if (keywords.some(k => desc.includes(k))) {
-            return industry;
-        }
+        if (keywords.some(k => desc.includes(k))) return industry;
     }
     return "technology";
 }
 
 /**
- * Batch search for multiple queries (sequential to avoid rate limits)
+ * Batch search — sequential
  */
 export async function batchSearch(
     queries: string[],
@@ -244,8 +151,7 @@ export async function batchSearch(
 ): Promise<SearchQuery[]> {
     const results: SearchQuery[] = [];
     for (const query of queries) {
-        const result = await webSearch(query, options);
-        results.push(result);
+        results.push(await webSearch(query, options));
     }
     return results;
 }

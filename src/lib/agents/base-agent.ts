@@ -23,6 +23,9 @@ export interface AgentStatus {
 
 export type AgentStatusCallback = (status: AgentStatus) => void;
 
+// Timeout for LLM calls (90 seconds)
+const LLM_TIMEOUT_MS = 90_000;
+
 export abstract class BaseAgent {
     abstract name: string;
     abstract role: string;
@@ -49,7 +52,15 @@ export abstract class BaseAgent {
             { role: "user", content: userPrompt },
         ];
 
-        return chat(messages, options);
+        // Add timeout to prevent hanging forever
+        const result = await Promise.race([
+            chat(messages, options),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`LLM call timed out after ${LLM_TIMEOUT_MS / 1000}s`)), LLM_TIMEOUT_MS)
+            ),
+        ]);
+
+        return result;
     }
 
     protected parseJSON<T>(response: string): T | null {
@@ -59,7 +70,7 @@ export abstract class BaseAgent {
             const jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
             return JSON.parse(jsonStr) as T;
         } catch {
-            console.error("Failed to parse JSON response:", response);
+            console.error("Failed to parse JSON response:", response.slice(0, 200));
             return null;
         }
     }
