@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar - minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* Selection */
+::selection {
+  background: rgba(163, 230, 53, 0.3);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid rgba(163, 230, 53, 0.5);
+  outline-offset: 2px;
+}
+
+/* Textarea reset */
+textarea {
+  field-sizing: content;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(163, 230, 53, 0.1) 50%,
+      transparent 100%);
+  background-size: 200% 100%;
+}
+
+/* Transition utilities */
+.transition-fast {
+  transition-duration: 150ms;
+}
+
+/* Code blocks */
+pre {
+  font-family: "SF Mono", "Fira Code", "Monaco", monospace;
+}
