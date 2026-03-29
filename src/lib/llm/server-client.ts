@@ -3,12 +3,18 @@
 
 import OpenAI from "openai";
 
-const groqClient = new OpenAI({
-    apiKey: process.env.GROQ_API_KEY || "",
-    baseURL: "https://api.groq.com/openai/v1",
-});
+// Lazy-initialized Groq client (avoids build-time errors)
+let groqClient: OpenAI | null = null;
 
-const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+function getClient() {
+    if (!groqClient) {
+        groqClient = new OpenAI({
+            apiKey: process.env.GROQ_API_KEY || "",
+            baseURL: "https://api.groq.com/openai/v1",
+        });
+    }
+    return groqClient;
+}
 
 export interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -25,7 +31,9 @@ export async function serverChat(
         temperature?: number;
     }
 ): Promise<string> {
-    const response = await groqClient.chat.completions.create({
+    const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+    const response = await getClient().chat.completions.create({
         messages,
         max_tokens: options?.maxTokens || 4096,
         temperature: options?.temperature || 0.7,
