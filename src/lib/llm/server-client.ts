@@ -1,20 +1,14 @@
 // Server-side LLM client for API routes
-// This uses Azure OpenAI directly, not via HTTP
+// Uses Groq Cloud (OpenAI-compatible API)
 
-import { AzureOpenAI } from "openai";
+import OpenAI from "openai";
 
-// Azure OpenAI Configuration (server-side only)
-const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";
-const apiKey = process.env.AZURE_OPENAI_API_KEY || "";
-const apiVersion = "2024-12-01-preview";
-const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
-
-// Create Azure OpenAI client (server-side)
-const azureClient = new AzureOpenAI({
-    apiVersion,
-    endpoint,
-    apiKey,
+const groqClient = new OpenAI({
+    apiKey: process.env.GROQ_API_KEY || "",
+    baseURL: "https://api.groq.com/openai/v1",
 });
+
+const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
 export interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -22,7 +16,7 @@ export interface ChatMessage {
 }
 
 /**
- * Server-side chat function using Azure OpenAI directly
+ * Server-side chat function using Groq Cloud
  */
 export async function serverChat(
     messages: ChatMessage[],
@@ -31,11 +25,11 @@ export async function serverChat(
         temperature?: number;
     }
 ): Promise<string> {
-    const response = await azureClient.chat.completions.create({
+    const response = await groqClient.chat.completions.create({
         messages,
         max_tokens: options?.maxTokens || 4096,
         temperature: options?.temperature || 0.7,
-        model: deployment,
+        model,
     });
 
     const content = response.choices[0]?.message?.content || "";

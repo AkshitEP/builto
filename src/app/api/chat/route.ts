@@ -1,18 +1,13 @@
-import { AzureOpenAI } from "openai";
+import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
 
-// Azure OpenAI Configuration (server-side only)
-const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";
-const apiKey = process.env.AZURE_OPENAI_API_KEY || "";
-const apiVersion = "2024-12-01-preview";
-const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
-
-// Create Azure OpenAI client (server-side)
-const azureClient = new AzureOpenAI({
-    apiVersion,
-    endpoint,
-    apiKey,
+// Groq Cloud Configuration (server-side only)
+const groqClient = new OpenAI({
+    apiKey: process.env.GROQ_API_KEY || "",
+    baseURL: "https://api.groq.com/openai/v1",
 });
+
+const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
 interface ChatMessage {
     role: "system" | "user" | "assistant";
@@ -35,11 +30,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const response = await azureClient.chat.completions.create({
+        const response = await groqClient.chat.completions.create({
             messages,
             max_tokens: maxTokens,
             temperature,
-            model: deployment,
+            model,
         });
 
         const content = response.choices[0]?.message?.content || "";

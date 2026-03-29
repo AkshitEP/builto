@@ -32,7 +32,7 @@
 | Framework | [Next.js 16](https://nextjs.org) (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS |
-| LLM | Azure OpenAI (GPT-4o-mini) |
+| LLM | [Groq Cloud](https://console.groq.com) (Llama 3.3 70B) |
 | Web Search | [Tavily](https://tavily.com) + DuckDuckGo |
 | Auth | NextAuth.js (GitHub OAuth) |
 | Database | Supabase PostgreSQL + Prisma ORM |
@@ -46,7 +46,7 @@
 ### Prerequisites
 - Node.js 18+
 - npm or pnpm
-- Azure OpenAI access
+- Groq Cloud API key (free at [console.groq.com](https://console.groq.com))
 - Supabase project (free tier works)
 
 ### 1. Clone the repo
@@ -69,7 +69,7 @@ Fill in your `.env` with:
 - **`DATABASE_URL`** / **`DIRECT_URL`** — from [Supabase Dashboard](https://supabase.com/dashboard) → Settings → Database
 - **`NEXTAUTH_SECRET`** — generate with `openssl rand -base64 32`
 - **`GITHUB_CLIENT_ID`** / **`GITHUB_CLIENT_SECRET`** — from [GitHub OAuth Apps](https://github.com/settings/developers)
-- **`AZURE_OPENAI_ENDPOINT`** / **`AZURE_OPENAI_API_KEY`** — your Azure OpenAI resource
+- **`GROQ_API_KEY`** — free at [console.groq.com](https://console.groq.com)
 - **`TAVILY_API_KEY`** — free at [tavily.com](https://tavily.com) (1,000 calls/month)
 
 ### 4. Set up the database
@@ -93,7 +93,7 @@ Open [http://localhost:3000](http://localhost:3000) and start building!
 src/
 ├── app/                    # Next.js App Router pages & API routes
 │   ├── api/
-│   │   ├── chat/           # Azure OpenAI chat endpoint
+│   │   ├── chat/           # Groq Cloud LLM endpoint
 │   │   ├── validate/       # Validator Agent API (web search)
 │   │   └── plan/           # Planner Agent API
 │   ├── auth/               # Auth pages
@@ -147,9 +147,8 @@ NEXTAUTH_SECRET
 NEXTAUTH_URL=https://your-domain.com
 GITHUB_CLIENT_ID
 GITHUB_CLIENT_SECRET
-AZURE_OPENAI_ENDPOINT
-AZURE_OPENAI_API_KEY
-AZURE_OPENAI_DEPLOYMENT
+GROQ_API_KEY
+GROQ_MODEL=llama-3.3-70b-versatile
 TAVILY_API_KEY
 ```
 
