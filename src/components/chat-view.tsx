@@ -25,8 +25,9 @@ import {
     Cpu,
     Briefcase,
     Rocket,
+    Clock,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StartupState } from "@/store/startup-store";
 import { FileTree, CodeViewer } from "./code-viewer";
 import { LivePreview } from "./live-preview";
@@ -57,6 +58,67 @@ const agentTabs: { id: AgentTab; label: string; icon: React.ComponentType<{ clas
     { id: "business", label: "Business", icon: Briefcase },
     { id: "developer", label: "MVP", icon: Rocket },
 ];
+
+// Live progress card for running agents
+function AgentProgressCard({ agentName, status }: { agentName: string; status: { stage: string; message: string; progress?: number } | null }) {
+    const [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        setElapsed(0);
+        const interval = setInterval(() => setElapsed(e => e + 1), 1000);
+        return () => clearInterval(interval);
+    }, [agentName]);
+
+    const formatElapsed = (s: number) => {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+    };
+
+    const stage = status?.stage || "thinking";
+    const message = status?.message || "Initializing...";
+    const progress = status?.progress || (stage === "thinking" ? 20 : stage === "executing" ? 60 : 10);
+
+    const stageLabels: Record<string, string> = {
+        thinking: "🧠 Analyzing",
+        executing: "⚡ Generating",
+        idle: "⏳ Queued",
+    };
+
+    return (
+        <div className="bg-[#1a1a1a] rounded-lg p-3 border border-[#2a2a2a] space-y-2">
+            {/* Stage + Timer */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lime-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-lime-400" />
+                    </span>
+                    <span className="text-xs font-medium text-lime-400">
+                        {stageLabels[stage] || "⚡ Working"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-[#666]">
+                    <Clock className="w-3 h-3" />
+                    {formatElapsed(elapsed)}
+                </div>
+            </div>
+
+            {/* Message */}
+            <p className="text-xs text-[#999]">{message}</p>
+
+            {/* Progress bar */}
+            <div className="w-full bg-[#2a2a2a] rounded-full h-1.5 overflow-hidden">
+                <motion.div
+                    className="h-full bg-gradient-to-r from-lime-400 to-emerald-400 rounded-full"
+                    initial={{ width: "5%" }}
+                    animate={{ width: `${Math.min(progress, 95)}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                />
+            </div>
+        </div>
+    );
+}
 
 export function ChatView({ startup, onApprove, onReject }: ChatViewProps) {
     const [activeTool, setActiveTool] = useState("chat");
@@ -327,9 +389,10 @@ export function ChatView({ startup, onApprove, onReject }: ChatViewProps) {
                                     {isCompleted ? (
                                         <p className="text-sm text-[#ccc]">{output.summary}</p>
                                     ) : (
-                                        <p className="text-sm text-[#666]">
-                                            {startup.agentStatus?.message || "Working..."}
-                                        </p>
+                                        <AgentProgressCard
+                                            agentName={agentLabels[agentKey]}
+                                            status={startup.agentStatus}
+                                        />
                                     )}
 
                                     {/* Actions */}
