@@ -1,226 +1,117 @@
 import { BaseAgent, AgentContext, AgentOutput } from "./base-agent";
 
-interface TechResult {
-    projectName: string;
-    techStack: {
-        frontend: string[];
-        backend: string[];
-        database: string[];
-        infrastructure: string[];
-        thirdParty: string[];
-    };
-    architecture: {
-        type: string;
-        description: string;
-        components: Component[];
-    };
-    database: {
-        type: string;
-        schema: Entity[];
-    };
-    api: {
-        style: string;
-        endpoints: Endpoint[];
-    };
-    mvpFeatures: Feature[];
-    devTimeline: {
-        setup: string;
-        core: string;
-        testing: string;
-        deployment: string;
-    };
-    securityConsiderations: string[];
-    scalabilityNotes: string[];
-}
-
-interface Component {
-    name: string;
-    purpose: string;
-    technology: string;
-}
-
-interface Entity {
-    name: string;
-    fields: string[];
-    relationships: string[];
-}
-
-interface Endpoint {
-    method: string;
-    path: string;
-    description: string;
-}
-
-interface Feature {
-    name: string;
-    priority: "P0" | "P1" | "P2";
-    description: string;
-    components: string[];
-}
-
 export class TechAgent extends BaseAgent {
-    name = "Tech";
-    role = "Technical Architect & Product Manager";
+  name = "Tech";
+  role = "Technical Architect";
 
-    systemPrompt = `You are an expert technical architect and product manager with deep experience in building MVPs for startups.
+  systemPrompt = `You are a technical architect designing MVPs for startups. Be concise.
 
-YOUR TASK:
-Design the technical architecture and MVP specification for the given startup idea. Focus on:
-- Choosing the right tech stack (modern, scalable, but not over-engineered)
-- Defining clear MVP features (prioritized)
-- Creating a practical database schema
-- Specifying key API endpoints
-
-PRINCIPLES:
-- Start simple, plan for scale
-- Use proven technologies
-- Prioritize developer velocity for MVP
-- Security from day one
-
-RESPOND IN JSON FORMAT:
+RESPOND IN THIS EXACT JSON FORMAT (no markdown, no extra text):
 {
-  "projectName": "<project name>",
+  "projectName": "name",
   "techStack": {
-    "frontend": ["<tech 1>", ...],
-    "backend": ["<tech 1>", ...],
-    "database": ["<tech 1>", ...],
-    "infrastructure": ["<tech 1>", ...],
-    "thirdParty": ["<service 1>", ...]
+    "frontend": ["React", "..."],
+    "backend": ["Node.js", "..."],
+    "database": ["PostgreSQL"],
+    "infrastructure": ["Vercel", "..."]
   },
   "architecture": {
-    "type": "<e.g., Monolith, Microservices, Serverless>",
-    "description": "<architecture overview>",
-    "components": [
-      {
-        "name": "<component name>",
-        "purpose": "<what it does>",
-        "technology": "<tech used>"
-      }
-    ]
+    "type": "Monolith or Microservices or Serverless",
+    "description": "2-3 sentence overview",
+    "components": [{"name": "...", "purpose": "...", "technology": "..."}]
   },
   "database": {
-    "type": "<e.g., PostgreSQL, MongoDB>",
-    "schema": [
-      {
-        "name": "<entity name>",
-        "fields": ["<field1: type>", ...],
-        "relationships": ["<relation description>", ...]
-      }
-    ]
+    "type": "PostgreSQL",
+    "schema": [{"name": "Entity", "fields": ["id: uuid", "..."], "relationships": ["..."]}]
   },
   "api": {
-    "style": "<REST, GraphQL, etc>",
-    "endpoints": [
-      {
-        "method": "GET|POST|PUT|DELETE",
-        "path": "/api/...",
-        "description": "<what it does>"
-      }
-    ]
+    "style": "REST",
+    "endpoints": [{"method": "GET", "path": "/api/...", "description": "..."}]
   },
-  "mvpFeatures": [
-    {
-      "name": "<feature name>",
-      "priority": "P0|P1|P2",
-      "description": "<feature description>",
-      "components": ["<component 1>", ...]
-    }
-  ],
-  "devTimeline": {
-    "setup": "<e.g., 2 days>",
-    "core": "<e.g., 2 weeks>",
-    "testing": "<e.g., 1 week>",
-    "deployment": "<e.g., 2 days>"
-  },
-  "securityConsiderations": ["<security item 1>", ...],
-  "scalabilityNotes": ["<scalability item 1>", ...]
-}`;
+  "mvpFeatures": [{"name": "...", "priority": "P0", "description": "...", "components": ["..."]}],
+  "devTimeline": {"setup": "1 day", "core": "1 week", "testing": "3 days", "deployment": "1 day"},
+  "securityConsiderations": ["..."],
+  "scalabilityNotes": ["..."]
+}
 
-    async execute(context: AgentContext): Promise<AgentOutput> {
-        this.updateStatus({
-            stage: "thinking",
-            message: `Designing technical architecture for: ${context.ideaTitle}`,
-        });
+Keep it practical and concise. Max 5 components, 6 endpoints, 5 features, 4 schema entities.`;
 
-        const validatorOutput = context.previousOutputs.validator as {
-            refinedIdea?: {
-                title: string;
-                description: string;
-                targetAudience: string;
-                uniqueValue: string;
-                revenueModel: string;
-            };
-        } | undefined;
+  async execute(context: AgentContext): Promise<AgentOutput> {
+    this.updateStatus({
+      stage: "thinking",
+      message: `Designing tech architecture for: ${context.ideaTitle}`,
+      progress: 10,
+    });
 
-        const plannerOutput = context.previousOutputs.planner as {
-            phases?: Array<{ name: string; deliverables: string[] }>;
-        } | undefined;
+    const validatorOutput = context.previousOutputs.validator as {
+      refinedIdea?: {
+        title: string;
+        description: string;
+        targetAudience: string;
+        revenueModel: string;
+      };
+    } | undefined;
 
-        const refinedIdea = validatorOutput?.refinedIdea;
+    const refinedIdea = validatorOutput?.refinedIdea;
 
-        const prompt = `
-DESIGN TECHNICAL ARCHITECTURE FOR THIS STARTUP:
-
+    const prompt = `Design the MVP tech spec for:
 Title: ${refinedIdea?.title || context.ideaTitle}
-
 Description: ${refinedIdea?.description || context.ideaDescription}
+Target: ${refinedIdea?.targetAudience || "General users"}
+Revenue: ${refinedIdea?.revenueModel || "TBD"}
 
-Target Audience: ${refinedIdea?.targetAudience || "To be defined"}
+Respond ONLY with the JSON object. No markdown. Keep it concise.`;
 
-Revenue Model: ${refinedIdea?.revenueModel || "To be defined"}
+    try {
+      this.updateStatus({
+        stage: "executing",
+        message: "Generating architecture and MVP spec...",
+        progress: 50,
+      });
 
-${plannerOutput?.phases ? `
-PROJECT PHASES (from Planner):
-${plannerOutput.phases.map((p) => `- ${p.name}: ${p.deliverables.join(", ")}`).join("\n")}
-` : ""}
+      const response = await this.callLLM(prompt, {
+        temperature: 0.5,
+        maxTokens: 2048,
+      });
 
-Create a comprehensive technical specification in the specified JSON format.
-`;
+      const result = this.parseJSON<Record<string, unknown>>(response);
 
-        try {
-            this.updateStatus({
-                stage: "executing",
-                message: "Designing architecture and MVP features...",
-                progress: 50,
-            });
+      if (!result) {
+        return {
+          success: false,
+          data: null,
+          summary: "Failed to parse technical specification",
+        };
+      }
 
-            const response = await this.callLLM(prompt, { temperature: 0.5 });
-            const result = this.parseJSON<TechResult>(response);
+      const techStack = result.techStack as Record<string, string[]> | undefined;
+      const mvpFeatures = result.mvpFeatures as Array<Record<string, unknown>> | undefined;
+      const architecture = result.architecture as Record<string, unknown> | undefined;
 
-            if (!result) {
-                return {
-                    success: false,
-                    data: null,
-                    summary: "Failed to parse technical specification",
-                };
-            }
+      this.updateStatus({
+        stage: "completed",
+        message: "Tech spec complete!",
+        progress: 100,
+      });
 
-            const p0Features = result.mvpFeatures.filter((f) => f.priority === "P0").length;
+      return {
+        success: true,
+        data: result,
+        summary: `${architecture?.type || "Architecture"} with ${techStack?.frontend?.[0] || "React"} + ${techStack?.backend?.[0] || "Node.js"}. ${mvpFeatures?.length || 0} MVP features defined.`,
+        requiresApproval: true,
+        approvalPrompt: `Tech Agent designed a ${architecture?.type || "monolith"} architecture. Approve to proceed.`,
+      };
+    } catch (error) {
+      this.updateStatus({
+        stage: "error",
+        message: `Technical design failed: ${error instanceof Error ? error.message : error}`,
+      });
 
-            this.updateStatus({
-                stage: "completed",
-                message: `Tech spec complete: ${p0Features} core features defined`,
-                progress: 100,
-            });
-
-            return {
-                success: true,
-                data: result,
-                summary: `Tech stack: ${result.techStack.frontend[0]} + ${result.techStack.backend[0]}. ${result.mvpFeatures.length} MVP features. ${result.api.endpoints.length} API endpoints.`,
-                requiresApproval: true,
-                approvalPrompt: `The Tech Agent has designed the architecture using ${result.architecture.type}. Approve to proceed with business strategy.`,
-            };
-        } catch (error) {
-            this.updateStatus({
-                stage: "error",
-                message: `Technical design failed: ${error}`,
-            });
-
-            return {
-                success: false,
-                data: null,
-                summary: `Technical design error: ${error}`,
-            };
-        }
+      return {
+        success: false,
+        data: null,
+        summary: `Technical design error: ${error instanceof Error ? error.message : error}`,
+      };
     }
+  }
 }
